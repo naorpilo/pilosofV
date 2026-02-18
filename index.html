@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hotel Value Comparison - Experience Index</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Assistant:wght@200;400;700&family=Oswald:wght@500;700&display=swap');
+        
+        body { 
+            font-family: 'Assistant', sans-serif; 
+            background: #0b0f1a; 
+            color: #e2e8f0;
+            overflow-x: hidden;
+        }
+
+        .fifa-font { font-family: 'Oswald', sans-serif; text-transform: uppercase; }
+
+        .main-display {
+            background: linear-gradient(135deg, #161d2f 0%, #0b0f1a 100%);
+            border-radius: 1.5rem;
+            border: 1px solid #1e293b;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+
+        .hotel-card-mini {
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            cursor: pointer;
+            filter: brightness(0.6) saturate(0.5);
+        }
+        .hotel-card-mini:hover { transform: translateY(-8px); filter: brightness(1); }
+        .hotel-card-mini.active { 
+            filter: brightness(1.1) saturate(1.2);
+            border: 2px solid #fbbf24;
+            transform: scale(1.1);
+            box-shadow: 0 0 20px rgba(251, 191, 36, 0.3);
+        }
+
+        .stat-card {
+            background: rgba(30, 41, 59, 0.4);
+            border-right: 4px solid #fbbf24;
+        }
+
+        .rank-badge {
+            background: linear-gradient(45deg, #fbbf24, #f59e0b);
+            color: #000;
+            font-weight: 900;
+            border-radius: 0.5rem;
+            padding: 0.2rem 0.8rem;
+        }
+
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        .price-badge {
+            background: #fbbf24;
+            color: #000;
+            clip-path: polygon(10% 0%, 100% 0%, 90% 100%, 0% 100%);
+            padding: 0.5rem 2rem;
+            font-weight: 800;
+        }
+        
+        .experience-box {
+            background: linear-gradient(to left, rgba(59, 130, 246, 0.1), transparent);
+            border-left: 2px solid #3b82f6;
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+
+    <div class="max-w-6xl mx-auto">
+        <!-- Header -->
+        <header class="flex flex-col md:flex-row justify-between items-end mb-10 gap-4">
+            <div class="text-right">
+                <h1 class="text-5xl font-bold fifa-font tracking-tighter text-white">HOTEL <span class="text-yellow-400">VALUE</span> RANK</h1>
+                <p class="text-slate-400 font-light italic">ניתוח צוות בידור, קולינריה ודירוג חוויה - אפריל 2025</p>
+            </div>
+            <div class="flex gap-4 items-center bg-slate-800/50 p-3 rounded-lg border border-slate-700">
+                <div class="text-center px-4 border-l border-slate-600">
+                    <span class="block text-[10px] text-slate-400 uppercase italic">ממוצע שוק</span>
+                    <span id="marketAverageDisplay" class="text-xl font-bold">0.0</span>
+                </div>
+                <div class="text-center px-4">
+                    <span class="block text-[10px] text-slate-400 uppercase italic">מלונות להשוואה</span>
+                    <span id="hotelCountDisplay" class="text-xl font-bold">0</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Dashboard -->
+        <div class="main-display p-6 md:p-8 mb-8 border-t-4 border-t-yellow-400">
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+                
+                <!-- Stats Radar -->
+                <div class="lg:col-span-5 h-[400px] flex flex-col items-center justify-center relative">
+                    <canvas id="radarChart"></canvas>
+                    <div class="absolute top-0 right-0 text-center">
+                        <span class="text-[10px] text-slate-500 block">דירוג יחסי</span>
+                        <div id="hotelRankDisplay" class="rank-badge text-2xl">#1</div>
+                    </div>
+                </div>
+
+                <!-- Info and Metrics -->
+                <div class="lg:col-span-7 space-y-6">
+                    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div>
+                            <h2 id="hotelName" class="text-4xl font-extrabold text-white tracking-tight">טוען נתונים...</h2>
+                            <p id="hotelLoc" class="text-yellow-400/80 font-medium">מיקום</p>
+                        </div>
+                        <div id="hotelPrice" class="price-badge text-2xl fifa-font">₪0</div>
+                    </div>
+
+                    <!-- Scores Row -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <!-- Total Average -->
+                        <div class="flex items-center gap-4 bg-white/5 p-4 rounded-xl border border-white/10">
+                            <div class="text-center flex-1">
+                                <span class="text-[10px] text-slate-400 uppercase block italic">ציון כללי</span>
+                                <span id="avgScoreDisplay" class="text-3xl font-black text-yellow-400">0.0</span>
+                            </div>
+                            <div class="h-10 w-[1px] bg-slate-700"></div>
+                            <div class="text-right flex-2">
+                                <span id="comparisonLabel" class="text-xs font-bold text-white block">טוען...</span>
+                                <p class="text-[10px] text-slate-400">ביצועי Value מול השוק</p>
+                            </div>
+                        </div>
+                        
+                        <!-- Experience Index -->
+                        <div class="flex items-center gap-4 experience-box p-4 rounded-xl border border-blue-500/20">
+                            <div class="text-center flex-1">
+                                <span class="text-[10px] text-blue-400 uppercase block italic">חווית נופש</span>
+                                <span id="expIndexDisplay" class="text-3xl font-black text-blue-400">0.0</span>
+                            </div>
+                            <div class="h-10 w-[1px] bg-slate-700"></div>
+                            <div class="text-right flex-2">
+                                <span class="text-xs font-bold text-white block italic">EQ INDEX</span>
+                                <p class="text-[10px] text-slate-400">ממוצע: אוכל, מתקנים ובידור</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="stat-card p-3 rounded-lg border-r-yellow-400">
+                            <span class="text-[10px] text-slate-400 block mb-1">צוות בידור</span>
+                            <div class="flex justify-between items-end">
+                                <span id="entStat" class="text-xl font-bold fifa-font text-white">0</span>
+                                <span class="text-[8px] text-slate-500 italic uppercase">Show</span>
+                            </div>
+                        </div>
+                        <div class="stat-card p-3 rounded-lg border-r-blue-400">
+                            <span class="text-[10px] text-slate-400 block mb-1">קולינריה</span>
+                            <div class="flex justify-between items-end">
+                                <span id="foodStat" class="text-xl font-bold fifa-font text-white">0</span>
+                                <span class="text-[8px] text-slate-500 italic uppercase">Food</span>
+                            </div>
+                        </div>
+                        <div class="stat-card p-3 rounded-lg border-r-purple-400">
+                            <span class="text-[10px] text-slate-400 block mb-1">מתקנים</span>
+                            <div class="flex justify-between items-end">
+                                <span id="facStat" class="text-xl font-bold fifa-font text-white">0</span>
+                                <span class="text-[8px] text-slate-500 italic uppercase">Facil</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="hotelSummary" class="bg-yellow-400/5 p-4 rounded-xl border border-yellow-400/20">
+                        <h4 class="text-yellow-400 text-sm font-bold mb-2 italic uppercase tracking-widest text-right">דגשים מרכזיים</h4>
+                        <ul id="highList" class="space-y-2 text-sm text-slate-300"></ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Scrollable Gallery -->
+        <div class="flex overflow-x-auto pb-8 gap-4 no-scrollbar scroll-smooth" id="hotelGallery"></div>
+    </div>
+
+    <script>
+        // Stats Order: [0:Cuisine, 1:Facilities, 2:Rooms, 3:Service, 4:Value, 5:Entertainment]
+        const hotels = [
+            { id: 'stella', name: 'Stella Village Seaside', loc: 'אנליפסי, כרתים', price: '₪704', stats: [7.5, 8.5, 7, 8.5, 10, 9.5], high: ['צוות בידור מהטובים ביוון - פעילות סביב השעון', 'פארק מים מקצועי כלול במחיר', 'היחס הכי חזק בשוק בין מחיר לבידור ילדים'], img: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=400&q=80' },
+            { id: 'apollonia', name: 'Apollonia Beach Resort', loc: 'אמודארה, כרתים', price: '₪1,314', stats: [9.5, 9, 8.5, 8, 8, 7.5], high: ['מתקני בריכה וספא מעל הממוצע', 'אוכל מגוון ואיכותי (4 מסעדות)', 'בידור רגוע וסולידי - מתאים למשפחות שמחפשות שקט'], img: 'https://images.unsplash.com/photo-1540541338287-41700207dee6?auto=format&fit=crop&w=400&q=80' },
+            { id: 'princess', name: 'Rodos Princess Beach', loc: 'קיוטארי, רודוס', price: '₪812', stats: [8.5, 9, 8, 9.5, 9.5, 8.5], high: ['שירות יוצא דופן וצוות קשוב', 'הופעות ערב מושקעות בתיאטרון המלון', 'מערך הסעדה לילדים שמוריד לחץ מההורים'], img: 'https://images.unsplash.com/photo-1571003123894-1f0594d2b5d9?auto=format&fit=crop&w=400&q=80' },
+            { id: 'mitsis-v', name: 'Mitsis Rodos Village', loc: 'קיוטארי, רודוס', price: '₪1,016', stats: [10, 8.5, 7.5, 8, 8.5, 8], high: ['איכות אוכל ללא תחרות (9 מסעדות)', 'משקאות מותגים (Premium Drinks)', 'צוות בידור מקצועי אך לא מעיק'], img: 'https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?auto=format&fit=crop&w=400&q=80' },
+            { id: 'civitel', name: 'Civitel Creta Beach', loc: 'אמודארה, כרתים', price: '₪929', stats: [8.5, 8.5, 9, 9, 9, 6.5], high: ['חדרים בסגנון בונגלוס - פרטיות ובידוד', 'צוות אישי שזוכר את האורחים', 'מיקום שקט - פחות דגש על בידור רועש'], img: 'https://images.unsplash.com/photo-1571896349842-33c89424de2d?auto=format&fit=crop&w=400&q=80' },
+            { id: 'maris', name: 'Mitsis Rodos Maris', loc: 'קיוטארי, רודוס', price: '₪790', stats: [9.5, 8, 8.5, 9, 10, 8.5], high: ['רמה של 5 כוכבים במחיר נגיש', 'צוות בידור פעיל בחוף ובבריכה', 'מסעדות מצוינות במחיר לינה נמוך'], img: 'https://images.unsplash.com/photo-1544124499-58912cbddaad?auto=format&fit=crop&w=400&q=80' },
+            { id: 'arina', name: 'Arina Beach Resort', loc: 'קוקיני חאני, כרתים', price: '₪966', stats: [9.5, 8, 7, 8, 8.5, 9], high: ['פארק מים חדש וצוות הפעלה מעולה', 'שפע אוכל ושתייה לאורך כל היום', 'הופעות חיות מדי ערב'], img: 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=400&q=80' },
+            // +10 חדשים
+            { id: 'lyttos-beach', name: 'Lyttos Beach Resort', loc: 'הרסוניסוס, כרתים', price: '₪1,350', stats: [8.8, 9.5, 8.3, 8.6, 8.8, 9.2], high: ['6 מסעדות ו-6 ברים במתחם', 'פארק מים חינם + מתקני ספורט', 'בריכה פנימית מחוממת עונתית'], img: 'https://images.unsplash.com/photo-1501117716987-c8e1ecb210d6?auto=format&fit=crop&w=400&q=80' },
+            { id: 'stella-palace', name: 'Stella Palace Aqua Park', loc: 'אנליפסי, כרתים', price: '₪1,450', stats: [8.7, 9.8, 8.4, 8.6, 7.9, 9.1], high: ['פארק מים ענק (Stella Waterland)', 'בריכה פנימית מחוממת', 'ספורט מגוון: טניס, מיני גולף ואנימציה'], img: 'https://images.unsplash.com/photo-1499793983690-e29da59ef1c2?auto=format&fit=crop&w=400&q=80' },
+            { id: 'creta-maris', name: 'Creta Maris Beach Resort', loc: 'הרסוניסוס, כרתים', price: '₪1,500', stats: [9.2, 9.4, 8.6, 9.0, 8.1, 8.8], high: ['הכל כלול ב-7 מסעדות ו-9 ברים', 'אזור בריכות מחוממות ייעודי', 'ריזורט ענק עם אווירת כפר יווני'], img: 'https://images.unsplash.com/photo-1502920917128-1aa500764cbd?auto=format&fit=crop&w=400&q=80' },
+            { id: 'mitsis-laguna', name: 'Mitsis Selection Laguna', loc: 'אניסארס, כרתים', price: '₪1,450', stats: [9.1, 9.0, 8.7, 8.8, 8.1, 8.7], high: ['Premium all inclusive עם מסעדות נושא', 'בריכות מחוממות (כולל לילדים)', 'רמת שירות וגימור גבוהה מאוד'], img: 'https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?auto=format&fit=crop&w=400&q=80' },
+            { id: 'mitsis-rinela', name: 'Mitsis Rinela Beach Resort', loc: 'קוקיני חאני, כרתים', price: '₪1,400', stats: [8.8, 8.8, 8.6, 8.7, 8.3, 9.0], high: ['בידור יום ולילה מושקע (DJ ומופעים)', 'ספורט חינם כולל פינג פונג', 'חוף ים חולי ומטופח צמוד'], img: 'https://images.unsplash.com/photo-1529290130-4ca3753253ae?auto=format&fit=crop&w=400&q=80' },
+            { id: 'nana-golden', name: 'Nana Golden Beach', loc: 'חראסוניסוס, כרתים', price: '₪1,500', stats: [9.0, 9.1, 8.6, 8.7, 7.8, 9.2], high: ['7 מסעדות א-לה-קארט כלולות', 'אמפיתיאטרון עם מופעי ערב ברמה גבוהה', 'מתקני ספורט מקצועיים (חץ וקשת)'], img: 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=400&q=80' },
+            { id: 'fodele', name: 'Fodele Beach Water Park', loc: 'פודלה, כרתים', price: '₪1,250', stats: [8.2, 9.3, 8.0, 8.4, 8.4, 8.8], high: ['פארק מים פרטי עם 7 מגלשות', 'בריכה חיצונית מחוממת (באפריל)', 'מיקום מבודד ונוף פנורמי לים'], img: 'https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&fit=crop&w=400&q=80' },
+            { id: 'marine-palace', name: 'Grecotel Marine Palace', loc: 'פנורמו, כרתים', price: '₪1,350', stats: [8.6, 9.2, 8.0, 8.6, 8.5, 8.6], high: ['פארק מים פנימי ובריכת ספא', 'בידור יום ולילה לכל המשפחה', 'מסגרת הכל כלול עשירה במיוחד'], img: 'https://images.unsplash.com/photo-1505691938895-1758d7feb511?auto=format&fit=crop&w=400&q=80' },
+            { id: 'white-palace', name: 'Grecotel White Palace', loc: 'רתימנו, כרתים', price: '₪1,650', stats: [9.6, 8.9, 9.0, 9.1, 7.4, 8.4], high: ['קונספט LUXME לחוויית פרימיום', 'מרתפי יין וברים עם משקאות מותגים', 'עיצוב מודרני לבן ויוקרתי'], img: 'https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?auto=format&fit=crop&w=400&q=80' },
+            { id: 'lindos-princess', name: 'Lindos Princess Beach', loc: 'לארדוס, רודוס', price: '₪1,250', stats: [8.4, 8.9, 8.2, 8.6, 8.7, 9.0], high: ['אמפיתיאטרון ענק למופעי לילה', 'צוות אנימציה מהפעילים ברודוס', 'ספורט מים ופעילויות חוף כלולות'], img: 'https://images.unsplash.com/photo-1445019980597-93fa8acb246c?auto=format&fit=crop&w=400&q=80' }
+        ];
+
+        let radarChart;
+        let marketAvg = 0;
+
+        // Process Hotel Stats
+        hotels.forEach(h => {
+            const sum = h.stats.reduce((a, b) => a + b, 0);
+            h.average = parseFloat((sum / h.stats.length).toFixed(1));
+            // Experience Index (Food:0, Facilities:1, Entertainment:5)
+            const expSum = h.stats[0] + h.stats[1] + h.stats[5];
+            h.expIndex = parseFloat((expSum / 3).toFixed(1));
+        });
+
+        const totalAvgSum = hotels.reduce((a, b) => a + b.average, 0);
+        marketAvg = parseFloat((totalAvgSum / hotels.length).toFixed(1));
+        const rankedHotels = [...hotels].sort((a, b) => b.average - a.average);
+
+        function initChart() {
+            const canvas = document.getElementById('radarChart');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            radarChart = new Chart(ctx, {
+                type: 'radar',
+                data: {
+                    labels: ['קולינריה', 'מתקנים', 'חדרים', 'שירות', 'Value', 'צוות בידור'],
+                    datasets: [{
+                        data: hotels[0].stats,
+                        backgroundColor: 'rgba(251, 191, 36, 0.2)',
+                        borderColor: '#fbbf24',
+                        borderWidth: 2,
+                        pointBackgroundColor: '#fbbf24',
+                        pointBorderColor: '#fff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        r: {
+                            angleLines: { color: 'rgba(255,255,255,0.05)' },
+                            grid: { color: 'rgba(255,255,255,0.1)' },
+                            pointLabels: { color: '#94a3b8', font: { size: 11, family: 'Assistant' } },
+                            ticks: { display: false },
+                            min: 0,
+                            max: 10
+                        }
+                    },
+                    plugins: { legend: { display: false } }
+                }
+            });
+        }
+
+        function safeSetText(id, text) {
+            const el = document.getElementById(id);
+            if (el) el.textContent = text;
+        }
+
+        function updateDisplay(hotelId) {
+            const hotel = hotels.find(h => h.id === hotelId);
+            if (!hotel) return;
+
+            safeSetText('hotelName', hotel.name);
+            safeSetText('hotelLoc', hotel.loc);
+            safeSetText('hotelPrice', hotel.price);
+            
+            // Stats Update
+            safeSetText('foodStat', hotel.stats[0]);
+            safeSetText('facStat', hotel.stats[1]);
+            // (Value is at index 4, but we display entertainment specifically below)
+            safeSetText('entStat', hotel.stats[5]);
+            
+            // Averages Update
+            safeSetText('avgScoreDisplay', hotel.average);
+            safeSetText('expIndexDisplay', hotel.expIndex);
+            safeSetText('marketAverageDisplay', marketAvg);
+            safeSetText('hotelCountDisplay', hotels.length);
+
+            const rank = rankedHotels.findIndex(h => h.id === hotelId) + 1;
+            safeSetText('hotelRankDisplay', `#${rank}`);
+
+            const diff = (hotel.average - marketAvg).toFixed(1);
+            const label = document.getElementById('comparisonLabel');
+            if (label) {
+                label.textContent = diff >= 0 ? `מעל ממוצע השוק ב-${diff} נק'` : `מתחת לממוצע ב-${Math.abs(diff)} נק'`;
+                label.className = `text-xs font-bold ${diff >= 0 ? 'text-green-400' : 'text-red-400'} block text-right`;
+            }
+
+            const list = document.getElementById('highList');
+            if (list) {
+                list.innerHTML = hotel.high.map(h => `
+                    <li class="flex items-start gap-2 justify-start flex-row-reverse text-right">
+                        <i class="fas fa-star text-yellow-400 mt-1 text-[10px]"></i>
+                        <span>${h}</span>
+                    </li>
+                `).join('');
+            }
+
+            if (radarChart) {
+                radarChart.data.datasets[0].data = hotel.stats;
+                radarChart.update();
+            }
+
+            document.querySelectorAll('.hotel-card-mini').forEach(card => {
+                card.classList.toggle('active', card.dataset.id === hotelId);
+            });
+        }
+
+        function buildGallery() {
+            const gallery = document.getElementById('hotelGallery');
+            if (!gallery) return;
+            gallery.innerHTML = hotels.map(hotel => `
+                <div class="hotel-card-mini shrink-0 w-36 bg-slate-800 rounded-xl overflow-hidden border border-slate-700/50 shadow-2xl" 
+                     data-id="${hotel.id}" 
+                     onclick="updateDisplay('${hotel.id}')">
+                    <div class="relative">
+                        <img src="${hotel.img}" class="h-24 w-full object-cover">
+                        <div class="absolute bottom-0 right-0 bg-yellow-400 text-black font-black px-2 py-0.5 text-[10px] fifa-font">
+                            ${hotel.average}
+                        </div>
+                        <div class="absolute top-0 left-0 bg-blue-500 text-white font-black px-2 py-0.5 text-[8px] fifa-font">
+                            EXP: ${hotel.expIndex}
+                        </div>
+                    </div>
+                    <div class="p-3">
+                        <h4 class="text-[10px] font-bold truncate text-white uppercase text-right">${hotel.name}</h4>
+                        <div class="flex justify-between items-center mt-1">
+                            <span class="text-[9px] text-yellow-400 font-bold">${hotel.price}</span>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        window.onload = () => {
+            initChart();
+            buildGallery();
+            if (hotels.length > 0) {
+                updateDisplay(hotels[0].id);
+            }
+        };
+    </script>
+</body>
+</html>
